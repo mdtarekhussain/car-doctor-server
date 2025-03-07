@@ -88,11 +88,11 @@ async function run() {
     // });
     app.post("/jwt", async (req, res) => {
       const user = req.body;
-      console.log("user", user);
+      // console.log("user", user);
       const token = jwt.sign(user, process.env.ACCESS_TOKEN, {
         expiresIn: "1d",
       });
-      console.log("token", token);
+      // console.log("token", token);
       res
         .cookie("token", token, {
           httpOnly: true,
@@ -102,14 +102,60 @@ async function run() {
     });
     app.post("/logout", async (req, res) => {
       const user = req.body;
-      console.log(user);
+      // console.log(user);
       res.clearCookie("token", { maxAge: 0 }).send({ success: true });
     });
+
     app.get("/services", logger, async (req, res) => {
-      const cursor = servicesCollection.find();
-      const result = await cursor.toArray();
+      const filter = req.query;
+      console.log("token", filter);
+      const query = {
+        // priceNumeric: { $lt: 150 },
+        title: { $regex: filter.search, $options: "i" },
+      };
+      const option = {
+        sort: { price: filter.sort === "asc" ? 1 : -1 },
+      };
+      const cursor = servicesCollection.aggregate([
+        {
+          $addFields: {
+            priceNumeric: { $toDouble: "$price" }, // price কে numeric এ convert করছেন
+          },
+        },
+        {
+          $match: query, // query টি এখানে ব্যবহার করুন
+        },
+        {
+          $sort: { priceNumeric: filter.sort === "asc" ? 1 : -1 }, // sort করছেন priceNumeric অনুযায়ী
+        },
+      ]);
+
+      const result = await cursor.toArray(query, option);
       res.send(result);
     });
+    // const query = {
+    //   priceNumeric: { $lt: 150, $gt: 50 },
+    // };
+
+    // const option = {
+    //   sort: { price: filter.sort === "asc" ? 1 : -1 },
+    // };
+
+    // const cursor = servicesCollection.aggregate([
+    //   {
+    //     $addFields: {
+    //       priceNumeric: { $toDouble: "$price" },
+    //     },
+    //   },
+    //   {
+    //     $sort: { priceNumeric: filter.sort === "asc" ? 1 : -1 },
+    //   },
+    // ]);
+
+    // const result = await cursor.toArray(query, option);
+    // res.send(result);
+    // });
+
     app.get("/services/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
@@ -121,8 +167,8 @@ async function run() {
     });
 
     app.get("/bookings", logger, verifyToken, async (req, res) => {
-      console.log("tok tok tok", req.cookies);
-      console.log("value of the valid token", req.user);
+      // console.log("tok tok tok", req.cookies);
+      // console.log("value of the valid token", req.user);
       if (req.user.email !== req.query.email) {
         return res.status(403).send({ message: "forbidden access" });
       }
@@ -145,7 +191,7 @@ async function run() {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
       const confirm = req.body;
-      console.log(confirm);
+      // console.log(confirm);
       const updateDoc = {
         $set: {
           status: confirm.status,
